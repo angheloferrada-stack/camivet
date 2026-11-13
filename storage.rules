@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Solo el dueño lee y sube archivos. No se pueden sobrescribir ni borrar.
+    match /users/{uid}/{allPaths=**} {
+      allow read, create: if request.auth != null && request.auth.uid == uid;
+      allow update, delete: if false;
+    }
+  }
+}

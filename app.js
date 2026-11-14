@@ -561,9 +561,19 @@ async function route() {
 
 function viewLogin() {
   app.innerHTML = `<div class="page"><div class="top"><h1 class="big">Fichas</h1></div>
-    <form class="form stack" id="login"><div class="field"><label>Correo</label><input type="email" name="email" required autocomplete="username"></div>
-      <div class="field"><label>Contraseña</label><input type="password" name="pass" required autocomplete="current-password"></div>
-      <button class="btn primary block">Entrar</button><div class="note" id="lerr"></div></form></div>`;
+    <div class="stack"><button class="btn primary block" id="gl">Entrar con Google</button><div class="note" id="lerr"></div>
+      <button class="link" id="showmail" type="button">Usar correo y contraseña</button>
+      <form class="form" id="login" hidden><div class="field"><label>Correo</label><input type="email" name="email" required autocomplete="username"></div>
+        <div class="field"><label>Contraseña</label><input type="password" name="pass" required autocomplete="current-password"></div>
+        <button class="btn block">Entrar</button></form></div></div>`;
+  $('#gl').addEventListener('click', async () => {
+    try { await S.store.loginGoogle(); await start(); } catch (err) {
+      console.error(err);
+      $('#lerr').textContent = err.code === 'auth/popup-blocked' ? 'El navegador bloqueó la ventana. Permite las ventanas emergentes e inténtalo de nuevo.'
+        : err.code === 'auth/popup-closed-by-user' ? '' : 'No se pudo entrar con Google. Revisa que el dominio esté autorizado en Firebase.';
+    }
+  });
+  $('#showmail').addEventListener('click', () => { $('#login').hidden = false; });
   $('#login').addEventListener('submit', async (e) => {
     e.preventDefault(); const f = new FormData(e.target);
     try { await S.store.login(f.get('email'), f.get('pass')); await start(); }

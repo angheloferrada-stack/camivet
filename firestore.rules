@@ -1,9 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Cada usuario solo ve lo suyo, y NADIE puede borrar documentos.
+    // Solo la dueña (su Gmail) ve y escribe sus datos, y NADIE puede borrar documentos.
+    // IMPORTANTE: reemplaza el correo de abajo por el Gmail real de ella.
     match /users/{uid}/{document=**} {
-      allow read, create, update: if request.auth != null && request.auth.uid == uid;
+      allow read, create, update: if request.auth != null && request.auth.uid == uid
+        && request.auth.token.email == 'REEMPLAZA@gmail.com';
       allow delete: if false;
     }
   }

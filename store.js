@@ -34,6 +34,7 @@ function local() {
     mode: 'local',
     user: async () => ({ local: true }),
     login: async () => ({ local: true }),
+    loginGoogle: async () => ({ local: true }),
     logout: async () => {},
     all: (n) => tx(n, 'readonly', (s) => s.getAll()),
     put: (n, o) => tx(n, 'readwrite', (s) => s.put(o)),
@@ -69,6 +70,7 @@ async function cloud(cfg) {
       const un = A.onAuthStateChanged(auth, (u) => { un(); user = u; res(u); });
     }),
     login: async (email, pass) => { user = (await A.signInWithEmailAndPassword(auth, email, pass)).user; return user; },
+    loginGoogle: async () => { user = (await A.signInWithPopup(auth, new A.GoogleAuthProvider())).user; return user; },
     logout: () => A.signOut(auth),
     all: async (n) => (await F.getDocs(F.collection(fs, 'users', user.uid, n))).docs.map((d) => d.data()),
     put: (n, o) => F.setDoc(F.doc(fs, 'users', user.uid, n, o.id), o),

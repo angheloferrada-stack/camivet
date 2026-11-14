@@ -14,8 +14,8 @@ Sube la carpeta a GitHub Pages (paso 3) o ábrela con cualquier servidor local. 
 
 ### 1. Crear el proyecto Firebase
 1. Entra a https://console.firebase.google.com con una cuenta Google (la de ella o la tuya) → **Crear proyecto**.
-2. **Authentication** → Comenzar → activar **Correo/contraseña** → pestaña Usuarios → **Agregar usuario** (el correo y clave con los que ella entrará).
-3. **Firestore Database** → Crear base de datos (modo producción). Ubicación: **us-central1** → pestaña **Reglas** → pegar el contenido de `firestore.rules` → Publicar.
+2. **Authentication** → Comenzar → activar el proveedor **Google** (elige un correo de soporte) → guardar. Luego en **Configuración → Dominios autorizados** agrega `TU-USUARIO.github.io`. Ella entra con su propio Gmail.
+3. **Firestore Database** → Crear base de datos (modo producción). Ubicación: **us-central1** → pestaña **Reglas** → pegar el contenido de `firestore.rules` (cambiando `REEMPLAZA@gmail.com` por el Gmail de ella) → Publicar.
 
 **No actives Storage ni Blaze:** los PDFs y fotos también se guardan dentro de Firestore, así que se queda en el plan gratis **Spark**, sin tarjeta.
 

@@ -1,6 +1,6 @@
 // Capa de almacenamiento.
 // - Sin configurar Firebase: modo prueba, todo queda en este dispositivo (IndexedDB).
-// - Con Firebase configurado (firebase-config.js): nube (Firestore + Storage) con login.
+// - Con Firebase configurado (firebase-config.js): nube (solo Firestore) con login.
 // La app nunca borra de verdad: "eliminar" solo marca el registro como eliminado.
 
 const COLS = ['clinics', 'patients', 'exams', 'files'];
@@ -48,9 +48,9 @@ function local() {
 /* ---------------- Nube (Firebase) ---------------- */
 async function cloud(cfg) {
   const V = 'https://www.gstatic.com/firebasejs/10.14.1/';
-  const [{ initializeApp }, A, F, S] = await Promise.all([
-    import(V + 'firebase-app.js'), import(V + 'firebase-auth.js'),
-    import(V + 'firebase-firestore.js'), import(V + 'firebase-storage.js'),
+  // Todo vive en Firestore (plan gratis, sin tarjeta). No se usa Cloud Storage.
+  const [{ initializeApp }, A, F] = await Promise.all([
+    import(V + 'firebase-app.js'), import(V + 'firebase-auth.js'), import(V + 'firebase-firestore.js'),
   ]);
   const app = initializeApp(cfg);
   const auth = A.getAuth(app);
@@ -58,9 +58,11 @@ async function cloud(cfg) {
   const fs = F.initializeFirestore(app, {
     localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }),
   });
-  const st = S.getStorage(app);
   let user = null;
-  const safe = (s) => s.replace(/[^\w.\-]+/g, '_').slice(0, 80);
+  // Firestore admite ~1 MB por documento: cada archivo se guarda en trozos de 700 KB.
+  const CHUNK = 700 * 1024;
+  const chunkRef = (id, i) => F.doc(fs, 'users', user.uid, 'filechunks', `${id}_${i}`);
+  const timeout = (ms, msg) => new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms));
   return {
     mode: 'cloud',
     user: () => new Promise((res) => {
@@ -70,11 +72,22 @@ async function cloud(cfg) {
     logout: () => A.signOut(auth),
     all: async (n) => (await F.getDocs(F.collection(fs, 'users', user.uid, n))).docs.map((d) => d.data()),
     put: (n, o) => F.setDoc(F.doc(fs, 'users', user.uid, n, o.id), o),
+    // Sube todos los trozos y recién después la app guarda la ficha del archivo: nunca queda un archivo a medias.
     putFile: async (meta, blob) => {
-      const path = `users/${user.uid}/files/${meta.id}-${safe(meta.name)}`;
-      await S.uploadBytes(S.ref(st, path), blob, { contentType: meta.mime });
-      meta.path = path;
+      if (navigator.onLine === false) throw new Error('Sin conexión: para subir archivos necesitas internet.');
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      const n = Math.max(1, Math.ceil(buf.length / CHUNK));
+      for (let i = 0; i < n; i++) {
+        const data = F.Bytes.fromUint8Array(buf.slice(i * CHUNK, (i + 1) * CHUNK));
+        await Promise.race([F.setDoc(chunkRef(meta.id, i), { fileId: meta.id, i, data }), timeout(60000, 'La subida tardó demasiado.')]);
+      }
+      meta.chunks = n;
     },
-    fileURL: (m) => S.getDownloadURL(S.ref(st, m.path)),
+    fileURL: async (m) => {
+      const n = m.chunks || 1;
+      const docs = await Promise.all(Array.from({ length: n }, (_, i) => F.getDoc(chunkRef(m.id, i))));
+      if (docs.some((d) => !d.exists())) throw new Error('Archivo incompleto');
+      return URL.createObjectURL(new Blob(docs.map((d) => d.data().data.toUint8Array()), { type: m.mime }));
+    },
   };
 }

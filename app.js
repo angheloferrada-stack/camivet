@@ -246,6 +246,8 @@ async function viewSettings() {
   const u = await S.store.user();
   app.innerHTML = `<div class="page">${navBar('#/', 'Fichas')}<h1 class="big">Ajustes</h1>
     ${S.store.mode === 'local' ? `<div class="info"><span class="pill warn">Modo prueba</span><div class="note" style="padding:6px 0 0">Los datos quedan solo en este dispositivo. Para guardarlos en la nube conecta Firebase (ver README).</div></div>` : `<div class="info"><span class="pill ok">Guardado en la nube</span><div class="note" style="padding:6px 0 0">${esc(u?.email || '')}</div></div>`}
+    ${(() => { const mb = S.files.reduce((a, f) => a + (f.size || 0), 0) / 1048576; const pct = Math.min(100, mb / 1024 * 100);
+      return `<div class="group-title">Espacio</div><div class="info"><div><b>${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB</b> de 1 GB gratis · ${S.files.length} archivos${pct > 80 ? ' <span class="pill warn">Casi lleno</span>' : ''}</div><div class="progress" style="margin-top:8px"><i style="width:${pct}%"></i></div></div>`; })()}
     <div class="group-title">Datos</div>
     <div class="list">
       <div class="row" data-go="#/import"><div class="grow"><div class="t">Importar PDFs que ya tengo</div><div class="s">Sube muchos de una vez a una clínica</div></div>${ic('chev').replace('class="i"', 'class="i chev"')}</div>
@@ -326,7 +328,25 @@ async function runImport() {
   go(`#/c/${cid}`);
 }
 
-async function addFileTo(patientId, file) {
+const MAX_FILE = 15 * 1024 * 1024; // el espacio gratis de Firestore es 1 GB en total
+
+// Las fotos se reducen (máx. 1800 px, JPEG) para ahorrar espacio. Los PDFs se guardan tal cual.
+async function shrinkImage(file) {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch (e) { return file; }
+}
+
+async function addFileTo(patientId, original) {
+  const file = await shrinkImage(original);
+  if (file.size > MAX_FILE) throw new Error(`${original.name} pesa más de 15 MB`);
   const meta = { ...base(), patientId, name: file.name, mime: file.type || 'application/octet-stream', size: file.size, path: '' };
   await S.store.putFile(meta, file);
   await save('files', meta);

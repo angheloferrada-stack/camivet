@@ -2,6 +2,7 @@
 
 App (PWA) para guardar fichas de pacientes veterinarios: **Clínica → Paciente (A–Z) → fichas, fotos y PDFs**.
 
+- Plan gratis de Firebase (Spark), sin tarjeta: todo se guarda en Firestore (1 GB). Las fotos se comprimen al subirlas; ~600 PDFs de 500 KB ocupan unos 300 MB.
 - Funciona en tablet, celular y computador. Se instala en la pantalla de inicio y abre sin internet.
 - Nada se borra de verdad: "eliminar" manda a la **Papelera** y se puede restaurar. Además las reglas de Firebase **prohíben borrar** datos y archivos, aunque la app tenga un error.
 - Ficha "Informe de Examen Oftálmico" rellenable (se guarda sola) y exportable a PDF.
@@ -15,8 +16,8 @@ Sube la carpeta a GitHub Pages (paso 3) o ábrela con cualquier servidor local. 
 1. Entra a https://console.firebase.google.com con una cuenta Google (la de ella o la tuya) → **Crear proyecto**.
 2. **Authentication** → Comenzar → activar **Correo/contraseña** → pestaña Usuarios → **Agregar usuario** (el correo y clave con los que ella entrará).
 3. **Firestore Database** → Crear base de datos (modo producción). Ubicación: **us-central1** → pestaña **Reglas** → pegar el contenido de `firestore.rules` → Publicar.
-4. **Storage** → Comenzar. Exige activar el plan **Blaze** (hay que agregar una tarjeta). Elige la región **us-central1**, que entra en la cuota gratis (5 GB). Pestaña **Reglas** → pegar `storage.rules` → Publicar.
-5. En Google Cloud → Facturación → **Presupuestos y alertas**: crea un presupuesto de, por ejemplo, 1 USD, para que avise si algo se pasa.
+
+**No actives Storage ni Blaze:** los PDFs y fotos también se guardan dentro de Firestore, así que se queda en el plan gratis **Spark**, sin tarjeta.
 
 ### 2. Conectar la app
 Configuración del proyecto (engranaje) → Tus apps → **Web** (`</>`) → copia el bloque `firebaseConfig` y pégalo en `firebase-config.js`.
@@ -30,7 +31,7 @@ Configuración del proyecto (engranaje) → Tus apps → **Web** (`</>`) → cop
 Ajustes → **Importar PDFs que ya tengo**. Elige la clínica y selecciona los PDFs de una carpeta. Cada archivo queda en un paciente con el nombre del archivo (los llamados "nuevo (1)" se marcan para ponerles el nombre correcto). Se hace carpeta por carpeta.
 
 ## Respaldo
-Ajustes → **Descargar respaldo** baja un archivo con todas las clínicas, pacientes y fichas. Los PDFs y fotos quedan en Firebase Storage.
+Ajustes → **Descargar respaldo** baja un archivo con todas las clínicas, pacientes y fichas. Los PDFs y fotos quedan en Firestore (el respaldo no los incluye).
 
 ## Si cambias algo del código
 Sube `CACHE` en `sw.js` (`fichasvet-v2`, `v3`…) para que los dispositivos tomen la versión nueva.

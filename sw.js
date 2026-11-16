@@ -1,5 +1,5 @@
 // Service worker: deja la app abrir sin internet (cachea los archivos de la app).
-const CACHE = 'fichasvet-v3';
+const CACHE = 'fichasvet-v4';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'store.js', 'ficha.js',
   'firebase-config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 

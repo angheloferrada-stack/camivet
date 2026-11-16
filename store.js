@@ -3,7 +3,7 @@
 // - Con Firebase configurado (firebase-config.js): nube (solo Firestore) con login.
 // La app nunca borra de verdad: "eliminar" solo marca el registro como eliminado.
 
-const COLS = ['clinics', 'patients', 'exams', 'files'];
+const COLS = ['clinics', 'patients', 'exams', 'files', 'settings'];
 
 export async function createStore() {
   let cfg = null;
@@ -14,8 +14,8 @@ export async function createStore() {
 /* ---------------- Modo prueba (local) ---------------- */
 function local() {
   const open = () => new Promise((res, rej) => {
-    const r = indexedDB.open('fichasvet-local', 1);
-    r.onupgradeneeded = () => [...COLS, 'blobs'].forEach((c) => r.result.createObjectStore(c, { keyPath: 'id' }));
+    const r = indexedDB.open('fichasvet-local', 2);
+    r.onupgradeneeded = () => [...COLS, 'blobs'].forEach((c) => { if (!r.result.objectStoreNames.contains(c)) r.result.createObjectStore(c, { keyPath: 'id' }); });
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
   });

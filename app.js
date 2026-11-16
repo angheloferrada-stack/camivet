@@ -5,8 +5,8 @@ import { SCHEMA, parseItem, baseKey, itemKey } from './ficha.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const app = $('#app');
-const COLS = ['clinics', 'patients', 'exams', 'files'];
-const S = { store: null, clinics: [], patients: [], exams: [], files: [], tab: 'fichas', eye: 'od', exam: null, dirty: false, imp: null };
+const COLS = ['clinics', 'patients', 'exams', 'files', 'settings'];
+const S = { store: null, clinics: [], patients: [], exams: [], files: [], settings: [], tab: 'fichas', eye: 'od', exam: null, dirty: false, imp: null };
 
 /* ---------- utilidades ---------- */
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -18,6 +18,8 @@ const fmtTs = (s) => { try { return new Date(s).toLocaleDateString('es-CL', { da
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const coll = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
 const live = (a) => a.filter((x) => !x.deletedAt);
+// Membrete de la ficha (nombre, RUT, WhatsApp, logo). Vive solo en los datos privados de la usuaria, no en el código.
+const profile = () => S.settings.find((x) => x.id === 'profile') || { id: 'profile', name: '', title: '', spec: '', rut: '', phone: '', logo: '' };
 const clinicOf = (id) => S.clinics.find((c) => c.id === id);
 const patientOf = (id) => S.patients.find((p) => p.id === id);
 const go = (h) => { location.hash = h; };
@@ -45,7 +47,7 @@ function toast(msg) {
 /* ---------- datos ---------- */
 async function loadAll() {
   const r = await Promise.all(COLS.map((c) => S.store.all(c)));
-  [S.clinics, S.patients, S.exams, S.files] = r;
+  [S.clinics, S.patients, S.exams, S.files, S.settings] = r;
 }
 
 function setStatus(kind) {
@@ -70,7 +72,7 @@ async function save(name, obj) {
 
 const base = () => ({ id: uid(), createdAt: nowISO(), updatedAt: nowISO(), deletedAt: null });
 const newClinic = (name, extra = {}) => ({ ...base(), name, address: '', phone: '', notes: '', kind: 'clinica', ...extra });
-const newPatient = (clinicId, name, extra = {}) => ({ ...base(), clinicId, name, species: '', breed: '', age: '', sex: '', owner: '', phone: '', address: '', notes: '', ...extra });
+const newPatient = (clinicId, name, extra = {}) => ({ ...base(), clinicId, name, species: '', breed: '', age: '', sex: '', owner: '', ownerRut: '', phone: '', address: '', notes: '', ...extra });
 
 async function seed() {
   if (!S.clinics.length) await save('clinics', newClinic('Domicilio', { id: 'domicilio', kind: 'domicilio', notes: 'Pacientes atendidos en su domicilio' }));
@@ -144,7 +146,7 @@ function viewPatient(id) {
   const exams = live(S.exams).filter((e) => e.patientId === id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const files = live(S.files).filter((f) => f.patientId === id).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   const dom = c?.kind === 'domicilio';
-  const info = [kv('Especie', p.species), kv('Raza', p.breed), kv('Edad', p.age), kv('Sexo', p.sex), kv('Responsable', p.owner), kv('Teléfono', p.phone), kv(dom ? 'Domicilio' : 'Dirección', p.address), kv('Clínica', c?.name)].join('');
+  const info = [kv('Especie', p.species), kv('Raza', p.breed), kv('Edad', p.age), kv('Sexo', p.sex), kv('Propietario', p.owner), kv('RUT propietario', p.ownerRut), kv('Teléfono', p.phone), kv(dom ? 'Domicilio' : 'Dirección', p.address), kv('Clínica', c?.name)].join('');
   const fichas = exams.length
     ? `<div class="list">${exams.map((e) => `<div class="row" data-go="#/e/${e.id}"><div class="ic">${ic('doc')}</div><div class="grow"><div class="t">${fmtDate(e.date)}</div><div class="s">${esc(e.data?.['diagnostico_y_tratamiento.x.diagnostico'] || 'Examen oftálmico')}</div></div>${ic('chev').replace('class="i"', 'class="i chev"')}</div>`).join('')}</div>`
     : `<div class="empty"><h2>Sin fichas todavía</h2><div class="muted">Crea la ficha de examen oftálmico.</div></div>`;
@@ -202,11 +204,12 @@ function viewExam(id) {
   ex.data = ex.data || {}; S.exam = ex; S.dirty = false;
   app.innerHTML = `<div class="page wide">${navBar(`#/p/${p.id}`, p.name, `<div class="savebar"><span class="dot" id="dot"></span><span id="sav">Guardado</span></div><button class="link" data-act="print">PDF</button>`)}
     <h1 class="big">Examen oftálmico</h1>
-    <div class="info"><div class="info-grid">${kv('Paciente', p.name)}${kv('Especie', p.species)}${kv('Raza', p.breed)}${kv('Edad', p.age)}${kv('Sexo', p.sex)}${kv('Responsable', p.owner)}${kv('Teléfono', p.phone)}</div></div>
+    ${(() => { const pr = profile(); return pr.name
+      ? `<div class="info"><div class="membrete">${pr.logo ? `<img src="${pr.logo}" alt="">` : ''}<div><div class="t">${esc(pr.name)}</div><div class="s">${esc([pr.title, pr.spec].filter(Boolean).join(' · '))}</div><div class="s">${esc([pr.rut && 'R.U.T. ' + pr.rut, pr.phone].filter(Boolean).join(' · '))}</div></div></div></div>`
+      : `<div class="info"><div class="note" style="padding:0">Aún no hay datos del veterinario en el encabezado. <button class="link" data-go="#/settings">Completar en Ajustes</button></div></div>`; })()}
+    <div class="info" style="margin-top:12px"><div class="info-grid">${kv('Mascota', p.name)}${kv('Especie', p.species)}${kv('Raza', p.breed)}${kv('Propietario', p.owner)}${kv('RUT', p.ownerRut)}</div></div>
     <div class="form" style="margin-top:12px">
-      <div class="field"><label>Fecha</label><input type="date" data-meta="date" value="${esc(ex.date || today())}"></div>
-      <div class="field"><label>Derivado por</label><input data-meta="derivado" value="${esc(ex.derivado || '')}" autocomplete="off"></div>
-      <div class="field"><label>Anamnesis</label><textarea rows="3" data-meta="anamnesis">${esc(ex.anamnesis || '')}</textarea></div></div>
+      <div class="field"><label>Fecha</label><input type="date" data-meta="date" value="${esc(ex.date || today())}"></div></div>
     <div class="seg-wrap"><div class="seg"><button data-act="eye" data-side="od" aria-selected="${S.eye === 'od'}">Ojo derecho</button><button data-act="eye" data-side="oi" aria-selected="${S.eye === 'oi'}">Ojo izquierdo</button></div>
       <div class="copy"><button class="link" data-act="copy" data-from="od" data-to="oi">Copiar derecho → izquierdo</button></div></div>
     <div id="fbody" class="show-${S.eye}">${formHTML()}</div>
@@ -231,13 +234,13 @@ function printHTML(ex, p, c) {
   const eyeTable = (arr, cls) => `<table class="${cls}"><tr><th></th><th>Ojo derecho</th><th>Ojo izquierdo</th></tr>${arr.map((s) =>
     `<tr><th class="sh">${esc(s.t)}</th><td>${s.rows.map((r) => val(s, r, 'od')).join('')}</td><td>${s.rows.map((r) => val(s, r, 'oi')).join('')}</td></tr>`).join('')}</table>`;
   const plain = `<table>${SCHEMA.filter((s) => !s.eye).map((s) => `<tr><th class="sh">${esc(s.t)}</th><td>${s.rows.map((r) => val(s, r, '')).join('')}</td></tr>`).join('')}</table>`;
-  return `<div class="ph">Informe de Examen Oftálmico</div>
-    <div class="pm"><div><b>Responsable:</b> ${esc(p.owner)}</div><div><b>Paciente:</b> ${esc(p.name)}</div>
-      <div><b>Tel:</b> ${esc(p.phone)}</div><div><b>Especie:</b> ${esc(p.species)}</div>
-      <div><b>Derivado:</b> ${esc(ex.derivado)}</div><div><b>Raza:</b> ${esc(p.breed)}</div>
-      <div><b>Anamnesis:</b> ${esc(ex.anamnesis)}</div><div><b>Edad:</b> ${esc(p.age)}</div>
-      <div><b>Clínica:</b> ${esc(c?.name)}</div><div><b>Sexo:</b> ${esc(p.sex)}</div>
-      <div></div><div><b>Fecha:</b> ${fmtDate(ex.date)}</div></div>
+  const pr = profile(); const [yy, mm, dd] = (ex.date || '').split('-');
+  return `<div class="mh"><div>${pr.name ? `<b>${esc(pr.name)}</b>` : ''}${[pr.title, pr.spec].filter(Boolean).map((x) => `<div>${esc(x)}</div>`).join('')}${pr.rut ? `<div>R.U.T.: ${esc(pr.rut)}</div>` : ''}${pr.phone ? `<div>WhatsApp ${esc(pr.phone)}</div>` : ''}</div>${pr.logo ? `<img class="mhlogo" src="${pr.logo}" alt="">` : ''}</div>
+    <div class="ph">Informe de Examen Oftálmico</div>
+    <div class="pdate"><div><small>Día</small>${dd ? +dd : ''}</div><div><small>Mes</small>${mm ? +mm : ''}</div><div><small>Año</small>${yy || ''}</div></div>
+    <div class="pm"><div><b>Mascota:</b> ${esc(p.name)}</div><div><b>Especie:</b> ${esc(p.species)}</div>
+      <div><b>Raza:</b> ${esc(p.breed)}</div><div><b>Propietario:</b> ${esc(p.owner)}</div>
+      <div><b>RUT:</b> ${esc(p.ownerRut)}</div></div>
     ${eyeTable(eyeSecs.slice(0, cut), '')}${eyeTable(eyeSecs.slice(cut), 'pb')}${plain}`;
 }
 
@@ -250,6 +253,7 @@ async function viewSettings() {
       return `<div class="group-title">Espacio</div><div class="info"><div><b>${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB</b> de 1 GB gratis · ${S.files.length} archivos${pct > 80 ? ' <span class="pill warn">Casi lleno</span>' : ''}</div><div class="progress" style="margin-top:8px"><i style="width:${pct}%"></i></div></div>`; })()}
     <div class="group-title">Datos</div>
     <div class="list">
+      <div class="row" data-act="editProfile"><div class="grow"><div class="t">Mis datos (encabezado de la ficha)</div><div class="s">${profile().name ? esc(profile().name) : 'Nombre, RUT, WhatsApp y logo que salen en la ficha'}</div></div>${ic('chev').replace('class="i"', 'class="i chev"')}</div>
       <div class="row" data-go="#/import"><div class="grow"><div class="t">Importar PDFs que ya tengo</div><div class="s">Sube muchos de una vez a una clínica</div></div>${ic('chev').replace('class="i"', 'class="i chev"')}</div>
       <div class="row" data-go="#/trash"><div class="grow"><div class="t">Papelera</div><div class="s">Recupera lo que eliminaste. Nada se borra para siempre.</div></div>${ic('chev').replace('class="i"', 'class="i chev"')}</div>
       <div class="row" data-act="backup"><div class="grow"><div class="t">Descargar respaldo</div><div class="s">Archivo con todas las clínicas, pacientes y fichas</div></div></div></div>
@@ -403,14 +407,14 @@ function patientSheet(p, clinicId) {
   const cur = p?.clinicId || clinicId;
   const bg = openSheet(p ? 'Editar paciente' : 'Nuevo paciente',
     `<datalist id="spl"><option>Perro</option><option>Gato</option><option>Conejo</option><option>Ave</option><option>Exótico</option></datalist>` +
-    fld('name', 'Nombre del paciente', p?.name) + fld('species', 'Especie', p?.species, { list: 'spl' }) + fld('breed', 'Raza', p?.breed) +
+    fld('name', 'Mascota (nombre)', p?.name) + fld('species', 'Especie', p?.species, { list: 'spl' }) + fld('breed', 'Raza', p?.breed) +
     fld('age', 'Edad', p?.age) + fld('sex', 'Sexo', p?.sex || '', { opts: ['', 'Macho', 'Hembra', 'Macho castrado', 'Hembra esterilizada'] }) +
-    fld('owner', 'Responsable (dueño)', p?.owner) + fld('phone', 'Teléfono', p?.phone, { type: 'tel' }) +
+    fld('owner', 'Propietario', p?.owner) + fld('ownerRut', 'RUT del propietario', p?.ownerRut) + fld('phone', 'Teléfono', p?.phone, { type: 'tel' }) +
     fld('address', 'Dirección (domicilio)', p?.address) + fld('clinicId', 'Clínica', cur, { opts: cs }) + fld('notes', 'Notas', p?.notes, { area: true }),
     async (f, bg) => {
       if (!f.name.trim()) return need(bg, 'name');
       const o = p || newPatient(f.clinicId, '');
-      Object.assign(o, { name: f.name.trim(), species: f.species.trim(), breed: f.breed.trim(), age: f.age.trim(), sex: f.sex, owner: f.owner.trim(), phone: f.phone.trim(), address: f.address.trim(), clinicId: f.clinicId, notes: f.notes.trim() });
+      Object.assign(o, { name: f.name.trim(), species: f.species.trim(), breed: f.breed.trim(), age: f.age.trim(), sex: f.sex, owner: f.owner.trim(), ownerRut: f.ownerRut.trim(), phone: f.phone.trim(), address: f.address.trim(), clinicId: f.clinicId, notes: f.notes.trim() });
       await save('patients', o);
       go(`#/p/${o.id}`); if (p) route();
     },
@@ -424,6 +428,25 @@ function patientSheet(p, clinicId) {
   const sync = () => { const c = clinicOf($('[name=clinicId]', bg).value); $('[name=address]', bg).closest('.field').hidden = !(c && c.kind === 'domicilio') && !$('[name=address]', bg).value; };
   $('[name=clinicId]', bg).addEventListener('change', sync); sync();
   return bg;
+}
+
+async function logoData(file) {
+  const bmp = await createImageBitmap(file); const k = Math.min(1, 320 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); return c.toDataURL('image/png');
+}
+
+function profileSheet() {
+  const p = profile();
+  openSheet('Mis datos (encabezado)',
+    fld('name', 'Nombre', p.name) + fld('title', 'Título', p.title) + fld('spec', 'Especialidad', p.spec) + fld('rut', 'RUT', p.rut) + fld('phone', 'WhatsApp o teléfono', p.phone, { type: 'tel' }) +
+    `<div class="field"><label>Logo (opcional)</label>${p.logo ? `<img src="${p.logo}" alt="Logo actual" style="max-height:64px;max-width:160px;object-fit:contain;margin:4px 0 8px">` : ''}<input type="file" name="logo" accept="image/*">${p.logo ? `<div style="margin-top:8px"><input type="checkbox" name="rmlogo" id="rml"> <label for="rml" style="display:inline">Quitar logo</label></div>` : ''}</div>`,
+    async (f) => {
+      const o = { ...p, createdAt: p.createdAt || nowISO(), deletedAt: null, name: f.name.trim(), title: f.title.trim(), spec: f.spec.trim(), rut: f.rut.trim(), phone: f.phone.trim() };
+      if (f.rmlogo) o.logo = '';
+      if (f.logo && f.logo.size) { try { o.logo = await logoData(f.logo); } catch (e) { toast('No se pudo leer el logo'); } }
+      await save('settings', o); toast('Guardado'); route();
+    });
 }
 
 /* ---------- visor de archivos ---------- */
@@ -448,6 +471,7 @@ async function openFile(id) {
 /* ---------- acciones ---------- */
 const ACT = {
   newClinic: () => clinicSheet(null),
+  editProfile: () => profileSheet(),
   editClinic: (el) => clinicSheet(clinicOf(el.dataset.id)),
   newPatient: (el) => patientSheet(null, el.dataset.clinic),
   editPatient: (el) => patientSheet(patientOf(el.dataset.id)),
@@ -498,7 +522,7 @@ const ACT = {
   pickImport: () => $('#impf').click(),
   runImport,
   backup: () => {
-    const data = { app: 'fichas-vet', exportedAt: nowISO(), clinics: S.clinics, patients: S.patients, exams: S.exams, files: S.files.map(({ path, ...f }) => ({ ...f, path })) };
+    const data = { app: 'fichas-vet', exportedAt: nowISO(), clinics: S.clinics, patients: S.patients, exams: S.exams, settings: S.settings, files: S.files.map(({ path, ...f }) => ({ ...f, path })) };
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     a.download = `respaldo-fichas-${today()}.json`; a.click(); toast('Respaldo descargado');
   },

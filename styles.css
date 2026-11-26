@@ -222,3 +222,7 @@ svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-widt
   #print .pdate div:first-child { border-left: 0; }
   #print .pdate small { display: block; font-weight: 400; font-size: 8px; color: #555; }
 }
+
+@media print {
+  #print .pan { white-space: pre-wrap; margin: 0 0 8px; min-height: 26px; border-bottom: 1px solid #999; }
+}

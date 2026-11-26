@@ -209,7 +209,8 @@ function viewExam(id) {
       : `<div class="info"><div class="note" style="padding:0">Aún no hay datos del veterinario en el encabezado. <button class="link" data-go="#/settings">Completar en Ajustes</button></div></div>`; })()}
     <div class="info" style="margin-top:12px"><div class="info-grid">${kv('Mascota', p.name)}${kv('Especie', p.species)}${kv('Raza', p.breed)}${kv('Propietario', p.owner)}${kv('RUT', p.ownerRut)}</div></div>
     <div class="form" style="margin-top:12px">
-      <div class="field"><label>Fecha</label><input type="date" data-meta="date" value="${esc(ex.date || today())}"></div></div>
+      <div class="field"><label>Fecha</label><input type="date" data-meta="date" value="${esc(ex.date || today())}"></div>
+      <div class="field"><label>Anamnesis</label><textarea rows="3" data-meta="anamnesis" placeholder="Motivo de consulta, historia, síntomas…">${esc(ex.anamnesis || '')}</textarea></div></div>
     <div class="seg-wrap"><div class="seg"><button data-act="eye" data-side="od" aria-selected="${S.eye === 'od'}">Ojo derecho</button><button data-act="eye" data-side="oi" aria-selected="${S.eye === 'oi'}">Ojo izquierdo</button></div>
       <div class="copy"><button class="link" data-act="copy" data-from="od" data-to="oi">Copiar derecho → izquierdo</button></div></div>
     <div id="fbody" class="show-${S.eye}">${formHTML()}</div>
@@ -241,6 +242,7 @@ function printHTML(ex, p, c) {
     <div class="pm"><div><b>Mascota:</b> ${esc(p.name)}</div><div><b>Especie:</b> ${esc(p.species)}</div>
       <div><b>Raza:</b> ${esc(p.breed)}</div><div><b>Propietario:</b> ${esc(p.owner)}</div>
       <div><b>RUT:</b> ${esc(p.ownerRut)}</div></div>
+    <div class="pan"><b>Anamnesis:</b> ${esc(ex.anamnesis)}</div>
     ${eyeTable(eyeSecs.slice(0, cut), '')}${eyeTable(eyeSecs.slice(cut), 'pb')}${plain}`;
 }
 
